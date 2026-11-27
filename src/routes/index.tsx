@@ -1,88 +1,72 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { complaintsQuery } from "@/lib/queries";
+import { CATEGORIES, type Category } from "@/lib/complaints";
+import { useLang, useT } from "@/lib/lang";
+import { ReportForm } from "@/components/ReportForm";
+import { ComplaintCard } from "@/components/ComplaintCard";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "NammaVoice — Report local issues" },
-      { name: "description", content: "Report and upvote civic issues in your neighbourhood." },
-      { property: "og:title", content: "NammaVoice — Report local issues" },
-      { property: "og:description", content: "Report and upvote civic issues in your neighbourhood." },
+      { title: "NammaVoice — Report civic issues by voice" },
+      { name: "description", content: "Report potholes, garbage, water leaks, drainage and streetlight problems in Kannada or English." },
+      { property: "og:title", content: "NammaVoice — Report civic issues by voice" },
+      { property: "og:description", content: "Speak or type a civic complaint in Kannada or English and track it." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
+  loader: ({ context }) => context.queryClient.ensureQueryData(complaintsQuery),
   component: Index,
 });
 
-type Issue = { id: string; title: string; area: string; category: string; votes: number; at: number };
-const CATS = ["Roads", "Water", "Garbage", "Streetlights", "Other"];
-const SEED: Issue[] = [
-  { id: "1", title: "Big pothole near the bus stop", area: "Jayanagar 4th Block", category: "Roads", votes: 42, at: Date.now() - 864e5 },
-  { id: "2", title: "No water supply for 3 days", area: "Hebbal", category: "Water", votes: 31, at: Date.now() - 1728e5 },
-  { id: "3", title: "Garbage piling up on main road", area: "Koramangala", category: "Garbage", votes: 18, at: Date.now() - 36e5 },
-];
-
 function Index() {
-  const [issues, setIssues] = useState<Issue[]>(SEED);
-  const [filter, setFilter] = useState("All");
-  const [form, setForm] = useState({ title: "", area: "", category: "Roads" });
-
-  useEffect(() => {
-    const s = localStorage.getItem("nv-issues");
-    if (s) setIssues(JSON.parse(s));
-  }, []);
-  const save = (next: Issue[]) => { setIssues(next); localStorage.setItem("nv-issues", JSON.stringify(next)); };
-
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title.trim() || !form.area.trim()) return;
-    save([{ id: crypto.randomUUID(), ...form, votes: 1, at: Date.now() }, ...issues]);
-    setForm({ title: "", area: "", category: form.category });
-  };
-
-  const shown = issues.filter((i) => filter === "All" || i.category === filter).sort((a, b) => b.votes - a.votes);
-
+  const { data } = useSuspenseQuery(complaintsQuery);
+  const { lang } = useLang();
+  const t = useT();
+  const [preset, setPreset] = useState<Category | null>(null);
+  const stats = [
+    { label: t("total"), value: data.length },
+    { label: t("open"), value: data.filter((c) => c.status === "submitted" || c.status === "in_progress").length },
+    { label: t("resolved"), value: data.filter((c) => c.status === "resolved").length },
+  ];
   return (
-    <main className="mx-auto max-w-3xl px-5 py-12">
-      <header className="mb-10">
-        <p className="text-sm font-bold uppercase tracking-widest text-primary">ನಮ್ಮ ಧ್ವನಿ</p>
-        <h1 className="mt-2 text-5xl font-extrabold md:text-6xl">NammaVoice</h1>
-        <p className="mt-3 text-lg text-muted-foreground">Raise your voice for your neighbourhood. Report problems, upvote what matters.</p>
-      </header>
-
-      <form onSubmit={submit} className="mb-10 rounded-2xl border bg-card p-5 shadow-sm">
-        <h2 className="mb-4 text-2xl font-semibold">Report an issue</h2>
-        <div className="grid gap-3 md:grid-cols-2">
-          <input className="rounded-lg border bg-background px-3 py-2 md:col-span-2" placeholder="What's the problem?" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <input className="rounded-lg border bg-background px-3 py-2" placeholder="Area / locality" value={form.area} onChange={(e) => setForm({ ...form, area: e.target.value })} />
-          <select className="rounded-lg border bg-background px-3 py-2" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-            {CATS.map((c) => <option key={c}>{c}</option>)}
-          </select>
-        </div>
-        <button className="mt-4 rounded-full bg-primary px-6 py-2 font-bold text-primary-foreground hover:opacity-90">Post issue</button>
-      </form>
-
-      <div className="mb-5 flex flex-wrap gap-2">
-        {["All", ...CATS].map((c) => (
-          <button key={c} onClick={() => setFilter(c)} className={`rounded-full border px-4 py-1 text-sm font-medium ${filter === c ? "bg-foreground text-background" : "bg-card"}`}>{c}</button>
-        ))}
+    <main className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-4 py-6 md:grid-cols-[1.2fr_1fr]">
+      <div className="min-w-0 space-y-6">
+        <ReportForm preset={preset} />
       </div>
-
-      <ul className="space-y-3">
-        {shown.map((i) => (
-          <li key={i.id} className="flex items-center gap-4 rounded-2xl border bg-card p-4">
-            <button aria-label="Upvote" onClick={() => save(issues.map((x) => x.id === i.id ? { ...x, votes: x.votes + 1 } : x))} className="flex w-14 flex-col items-center rounded-xl bg-accent py-2 font-bold text-accent-foreground hover:opacity-90">
-              ▲<span>{i.votes}</span>
-            </button>
-            <div>
-              <p className="font-semibold">{i.title}</p>
-              <p className="text-sm text-muted-foreground">{i.area} · {i.category}</p>
+      <div className="min-w-0 space-y-6">
+        <section aria-label="Statistics" className="grid grid-cols-3 gap-3">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded-2xl border bg-card p-4 text-center shadow-sm">
+              <p className="font-display text-3xl font-extrabold text-primary">{s.value}</p>
+              <p className="text-xs font-semibold text-muted-foreground">{s.label}</p>
             </div>
-          </li>
-        ))}
-        {shown.length === 0 && <p className="text-muted-foreground">No issues here yet.</p>}
-      </ul>
+          ))}
+        </section>
+        <section>
+          <h2 className="mb-3 text-xl font-bold">{t("categories")}</h2>
+          <div className="grid grid-cols-3 gap-2">
+            {CATEGORIES.map((c) => {
+              const n = data.filter((x) => x.category === c.id).length;
+              return (
+                <button key={c.id} onClick={() => setPreset(preset === c.id ? null : c.id)} aria-pressed={preset === c.id}
+                  className={`rounded-2xl border p-3 text-center transition ${preset === c.id ? "border-primary bg-secondary" : "bg-card hover:bg-secondary/60"}`}>
+                  <span className="text-2xl" aria-hidden>{c.icon}</span>
+                  <p className="mt-1 text-xs font-bold">{lang === "en" ? c.en : c.kn}</p>
+                  <p className="text-[11px] text-muted-foreground">{n}</p>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+        <section>
+          <h2 className="mb-3 text-xl font-bold">{t("recent")}</h2>
+          <div className="space-y-3">{data.slice(0, 5).map((c) => <ComplaintCard key={c.id} c={c} />)}</div>
+        </section>
+      </div>
     </main>
   );
 }

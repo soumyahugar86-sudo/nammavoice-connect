@@ -28,3 +28,7 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+- Complaints persist in the Cloud `complaints` table (not localStorage) so the admin dashboard sees every citizen's reports; photos are stored as resized data URLs because public storage buckets are blocked in this workspace.
+- AI analysis runs in `src/lib/ai.functions.ts` and always falls back to the rule-based `demoAnalyze` so the app works without AI; the UI labels which one ran.
+- Admin dashboard is an unauthenticated demo; add auth + roles before real use.
