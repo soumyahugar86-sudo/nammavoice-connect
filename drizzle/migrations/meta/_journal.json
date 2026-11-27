@@ -8,6 +8,13 @@
       "when": 1795760789807,
       "tag": "0000_create_complaints",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1795761264023,
+      "tag": "0001_admin_roles",
+      "breakpoints": true
     }
   ]
 }
